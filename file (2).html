@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Integration Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+        }
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        .input-group input[type="text"],
+        .input-group input[type="number"] {
+            width: calc(100% - 20px);
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        .input-group input:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 30px;
+            font-size: 1.3em;
+            color: #333;
+            font-weight: bold;
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            word-break: break-word; /* To ensure long results don't overflow */
+        }
+        .error {
+            color: #dc3545;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .info {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 5px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Simple Integration Calculator</h1>
+        <div class="input-group">
+            <label for="functionInput">Function (e.g., x^2, sin(x), 1/x)</label>
+            <input type="text" id="functionInput" value="x^2">
+            <div class="info">Use 'x' as the variable. Supported: +, -, *, /, ^, sin(), cos(), tan(), log(), exp(), abs(), sqrt().</div>
+        </div>
+        <div class="input-group">
+            <label for="lowerLimit">Lower Limit (a)</label>
+            <input type="number" id="lowerLimit" value="0">
+        </div>
+        <div class="input-group">
+            <label for="upperLimit">Upper Limit (b)</label>
+            <input type="number" id="upperLimit" value="1">
+        </div>
+        <button onclick="calculateIntegral()">Calculate Integral</button>
+        <div id="result">
+            Result:
+        </div>
+    </div>
+
+    <script>
+        function calculateIntegral() {
+            const functionString = document.getElementById('functionInput').value;
+            const lowerLimit = parseFloat(document.getElementById('lowerLimit').value);
+            const upperLimit = parseFloat(document.getElementById('upperLimit').value);
+            const resultDiv = document.getElementById('result');
+
+            // Basic validation
+            if (isNaN(lowerLimit) || isNaN(upperLimit)) {
+                resultDiv.innerHTML = '<span class="error">Please enter valid numbers for limits.</span>';
+                return;
+            }
+            if (lowerLimit >= upperLimit) {
+                resultDiv.innerHTML = '<span class="error">Upper limit must be greater than lower limit.</span>';
+                return;
+            }
+
+            // Function parsing and evaluation
+            let f;
+            try {
+                // Safely evaluate the function string
+                // Using new Function() is powerful but comes with security considerations if done with untrusted input.
+                // For a local, standalone file, it's generally acceptable.
+                // It replaces common math functions for safer evaluation.
+                const sanitizedFunctionString = functionString
+                    .replace(/log\((.*?)\)/g, 'Math.log($1)') // Natural log
+                    .replace(/exp\((.*?)\)/g, 'Math.exp($1)')
+                    .replace(/sin\((.*?)\)/g, 'Math.sin($1)')
+                    .replace(/cos\((.*?)\)/g, 'Math.cos($1)')
+                    .replace(/tan\((.*?)\)/g, 'Math.tan($1)')
+                    .replace(/abs\((.*?)\)/g, 'Math.abs($1)')
+                    .replace(/sqrt\((.*?)\)/g, 'Math.sqrt($1)')
+                    .replace(/\^/g, '**'); // JavaScript uses ** for power
+
+                f = new Function('x', `return ${sanitizedFunctionString};`);
+                // Test the function once to catch syntax errors early
+                f(0); 
+            } catch (e) {
+                resultDiv.innerHTML = `<span class="error">Invalid function syntax or unsupported operation: ${e.message}</span>`;
+                return;
+            }
+
+            // Trapezoidal Rule for numerical integration
+            const n = 10000; // Number of trapezoids (intervals), higher for more accuracy
+            const h = (upperLimit - lowerLimit) / n; // Width of each trapezoid
+
+            let sum = 0.5 * (f(lowerLimit) + f(upperLimit)); // First and last terms
+
+            for (let i = 1; i < n; i++) {
+                const x_i = lowerLimit + i * h;
+                try {
+                     sum += f(x_i);
+                } catch (e) {
+                     resultDiv.innerHTML = `<span class="error">Error evaluating function at x=${x_i.toFixed(4)}: ${e.message}. Check domain.</span>`;
+                     return;
+                }
+            }
+
+            const integral = h * sum;
+            resultDiv.innerHTML = `Result: ${integral.toFixed(6)}`; // Display with 6 decimal places
+        }
+
+        // Calculate on Enter key press in any input field
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    calculateIntegral();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
